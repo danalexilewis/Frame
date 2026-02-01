@@ -108,9 +108,9 @@ export class FrameBundleBuilder {
 
     // Read records_tree_preview
     const resolver = new FrameResolver(this.projectRoot);
-    const recordsTreeRef =
-      mapResult.maps.find((ref) => ref.path.endsWith("records_tree.txt")) ??
-      mapResult.maps[0];
+    const recordsTreeRef = mapResult.maps.find((ref) =>
+      ref.path.endsWith("records_tree.txt"),
+    );
     const recordsTreePreview = recordsTreeRef
       ? resolver.read(recordsTreeRef)
       : "";

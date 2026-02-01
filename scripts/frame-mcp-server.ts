@@ -88,7 +88,16 @@ class FrameMCPServer {
     this.server.setRequestHandler(
       ReadResourceRequestSchema,
       async (request) => {
-        const uri = new URL(request.params.uri);
+        let uri: URL;
+        try {
+          uri = new URL(request.params.uri);
+        } catch (error) {
+          throw new Error(
+            `Malformed URI: "${request.params.uri}". ${
+              error instanceof Error ? error.message : "Invalid URI format"
+            }`,
+          );
+        }
 
         if (uri.protocol !== "frame:") {
           throw new Error(`Unsupported URI scheme: ${uri.protocol}`);
