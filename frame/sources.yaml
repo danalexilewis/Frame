@@ -1,0 +1,6 @@
+sources:
+  - name: defaults
+    path: ./frame
+  - name: test-source
+    path: ./sources/test-source
+    ignore: true
