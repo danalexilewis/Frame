@@ -59,3 +59,28 @@ date: 2026-02-01
 tags: [eddy, sync, planning]
 ---
 ```
+
+## Scripts
+
+Common CLI entry points:
+- `npm run load` → validate/load sources
+- `npm run build-map` → generate `maps/records_tree.txt` + `maps/records_map.md`
+- `npm run curate` → select profile/skills/tools/records
+- `npm run bundle` → build `context_bundle.json`
+- `npm run mcp` → run MCP server
+
+### Add Metadata to Markdown Sources
+
+Use the metadata helper to add or fill YAML frontmatter based on file content:
+
+```
+tsx scripts/frame-add-metadata.ts --sourceDir ./sources/my-source/data
+```
+
+Options:
+- `--type data` (default)
+- `--docType article`
+- `--maxTags 5`
+- `--idPrefix my_source`
+- `--overwrite` (replace existing fields)
+- `--write` (apply changes; default is dry-run)
