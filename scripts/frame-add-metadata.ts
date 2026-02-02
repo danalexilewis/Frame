@@ -13,6 +13,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import matter from "gray-matter";
+import { formatCliError, formatCliMessage } from "./cli-output.js";
 
 interface Options {
   sourceDir: string;
@@ -119,7 +120,7 @@ function inferDate(filename: string, content: string): string | undefined {
 
 function inferDocType(
   content: string,
-  fallback?: Options["docType"],
+  fallback?: Options["docType"]
 ): Options["docType"] {
   const lower = content.toLowerCase();
   if (TABLE_LINE_RE.test(content)) {
@@ -177,7 +178,7 @@ function buildFrontmatter(
   filePath: string,
   content: string,
   existing: Record<string, any>,
-  options: Options,
+  options: Options
 ): Record<string, any> {
   const filename = path.basename(filePath, ".md");
   const inferredDate = inferDate(filename, content);
@@ -230,7 +231,7 @@ function run(options: Options) {
       filePath,
       parsed.content,
       parsed.data as Record<string, any>,
-      options,
+      options
     );
     const next = matter.stringify(parsed.content, updated);
 
@@ -278,17 +279,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   if (!options.sourceDir) {
-    console.error("Error: --sourceDir is required");
+    console.error(formatCliMessage("Error", "--sourceDir is required"));
     process.exit(1);
   }
 
   try {
     run(options);
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error(formatCliError(error));
     process.exit(1);
   }
 }

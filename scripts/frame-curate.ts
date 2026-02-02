@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { FrameLoader, Entity, FileRef } from "./frame-load.js";
+import { formatCliError, formatCliMessage } from "./cli-output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,7 +99,7 @@ export class FrameCurator {
       "last",
     ];
     const hasRecencyIntent = recencyKeywords.some((kw) =>
-      requestLower.includes(kw),
+      requestLower.includes(kw)
     );
     if (hasRecencyIntent && metadata.date && metadata.type === "data") {
       // Boost records with dates, more recent = higher boost
@@ -192,7 +193,7 @@ export class FrameCurator {
     }
     if (selectedRecords.length > 0) {
       notesParts.push(
-        `Selected ${selectedRecords.length} record(s) based on relevance`,
+        `Selected ${selectedRecords.length} record(s) based on relevance`
       );
     }
 
@@ -235,7 +236,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   if (!request) {
-    console.error("Error: --request is required");
+    console.error(formatCliMessage("Error", "--request is required"));
     process.exit(1);
   }
 
@@ -251,10 +252,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const result = curator.curate();
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error(formatCliError(error));
     process.exit(1);
   }
 }

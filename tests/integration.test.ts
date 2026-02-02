@@ -11,6 +11,11 @@ import {
   ingestSourceDir,
   IngestConverter,
 } from "../scripts/frame-ingest-to-markdown.js";
+import {
+  formatCliError,
+  formatCliMessage,
+  normalizeError,
+} from "../scripts/cli-output.js";
 
 process.env.FRAME_MODE = "test";
 const projectRoot = process.cwd();
@@ -139,4 +144,19 @@ test("docx ingestion uses test-source import fixtures", async () => {
       fs.rmSync(pendingPath);
     }
   }
+});
+
+test("cli error formatting wraps messages in code blocks", () => {
+  const message = formatCliMessage("Error", "missing --request");
+  assert.ok(message.startsWith("Error:\n```"));
+  assert.ok(message.includes("missing --request"));
+  assert.ok(message.endsWith("```\n") || message.endsWith("```"));
+
+  const err = new Error("boom");
+  const formatted = formatCliError(err);
+  assert.ok(formatted.startsWith("Error:\n```"));
+  assert.ok(formatted.includes("boom"));
+
+  const normalized = normalizeError(err);
+  assert.ok(normalized.includes("boom"));
 });

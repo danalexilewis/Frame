@@ -14,6 +14,10 @@ import * as path from "path";
 import mammoth from "mammoth";
 import TurndownService from "turndown";
 import matter from "gray-matter";
+import {
+  formatCliError,
+  formatCliMessage,
+} from "./cli-output.js";
 
 export interface Options {
   input?: string;
@@ -411,10 +415,10 @@ export async function convertInput(
   fs.writeFileSync(outputPath, outputContent, "utf-8");
 
   if (result.messages.length > 0) {
-    console.error("Conversion warnings:");
-    for (const message of result.messages) {
-      console.error(`- ${message.type}: ${message.message}`);
-    }
+    const warnings = result.messages
+      .map((message) => `${message.type}: ${message.message}`)
+      .join("\n");
+    console.error(formatCliMessage("Conversion warnings", warnings));
   }
 
   console.log(`Wrote: ${outputPath}`);
@@ -525,7 +529,7 @@ async function run(options: Options) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const options = parseArgs(process.argv.slice(2));
   run(options).catch((error) => {
-    console.error("Error:", error instanceof Error ? error.message : error);
+    console.error(formatCliError(error));
     process.exit(1);
   });
 }

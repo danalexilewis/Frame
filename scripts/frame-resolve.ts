@@ -10,6 +10,7 @@ import * as path from "path";
 import * as yaml from "js-yaml";
 import { fileURLToPath } from "url";
 import { FrameLoader, FileRef } from "./frame-load.js";
+import { formatCliError, formatCliMessage } from "./cli-output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,7 +42,7 @@ export class FrameResolver {
 
     if (!fs.existsSync(sourcePath)) {
       throw new Error(
-        `Source path does not exist: ${ref.source} -> ${sourcePath}`,
+        `Source path does not exist: ${ref.source} -> ${sourcePath}`
       );
     }
 
@@ -49,7 +50,7 @@ export class FrameResolver {
 
     if (!fs.existsSync(resolvedPath)) {
       throw new Error(
-        `File not found: ${ref.source}:${ref.path} -> ${resolvedPath}`,
+        `File not found: ${ref.source}:${ref.path} -> ${resolvedPath}`
       );
     }
 
@@ -69,7 +70,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const filePath = process.argv[4];
 
   if (!source || !filePath) {
-    console.error("Usage: frame-resolve <projectRoot> <source> <path>");
+    console.error(
+      formatCliMessage("Usage", "frame-resolve <projectRoot> <source> <path>")
+    );
     process.exit(1);
   }
 
@@ -80,10 +83,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const resolved = resolver.resolve(ref);
     console.log(resolved);
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error(formatCliError(error));
     process.exit(1);
   }
 }

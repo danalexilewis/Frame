@@ -10,6 +10,11 @@ import * as path from "path";
 import * as yaml from "js-yaml";
 import matter from "gray-matter";
 import { fileURLToPath } from "url";
+import {
+  formatCliError,
+  formatCliMessage,
+  normalizeError,
+} from "./cli-output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -147,7 +152,8 @@ export class FrameLoader {
 
           entities.push({ metadata, ref });
         } catch (error) {
-          console.error(`Error loading ${filePath}:`, error);
+          const message = `${filePath}\n${normalizeError(error)}`;
+          console.error(formatCliMessage("Error loading file", message));
         }
       }
     }
@@ -192,13 +198,18 @@ export class FrameLoader {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   const projectRoot = process.argv[2] || process.cwd();
-  const loader = new FrameLoader(projectRoot);
-  const catalog = loader.load();
+  try {
+    const loader = new FrameLoader(projectRoot);
+    const catalog = loader.load();
 
-  console.log(`Loaded ${catalog.size} entities from sources:`);
-  for (const [id, entity] of catalog.entries()) {
-    console.log(
-      `  ${id} (${entity.metadata.type}) from ${entity.ref.source}:${entity.ref.path}`
-    );
+    console.log(`Loaded ${catalog.size} entities from sources:`);
+    for (const [id, entity] of catalog.entries()) {
+      console.log(
+        `  ${id} (${entity.metadata.type}) from ${entity.ref.source}:${entity.ref.path}`
+      );
+    }
+  } catch (error) {
+    console.error(formatCliError(error));
+    process.exit(1);
   }
 }

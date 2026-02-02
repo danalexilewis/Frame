@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { FrameLoader, Entity, FileRef } from "./frame-load.js";
 import { FrameResolver } from "./frame-resolve.js";
 import matter from "gray-matter";
+import { formatCliError } from "./cli-output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,7 +112,7 @@ export class RecordsMapBuilder {
 
   private buildRecordsTree(
     entities: Entity[],
-    selectedIds: Set<string>,
+    selectedIds: Set<string>
   ): string {
     const lines: string[] = [];
     lines.push("Records Tree");
@@ -167,13 +168,13 @@ export class RecordsMapBuilder {
 
   private buildRecordsMap(
     entities: Entity[],
-    selectedIds: Set<string>,
+    selectedIds: Set<string>
   ): string {
     const lines: string[] = [];
     lines.push("# Records Map");
     lines.push("");
     lines.push(
-      "Index cards for all data records, sorted by doc_type, date (desc), filename.",
+      "Index cards for all data records, sorted by doc_type, date (desc), filename."
     );
     lines.push("");
 
@@ -183,7 +184,7 @@ export class RecordsMapBuilder {
       const refStr = this.getRefString(
         entity.ref,
         entity.metadata.type,
-        entity.metadata.id,
+        entity.metadata.id
       );
       const content = this.resolver.read(entity.ref);
       const summary = this.extractSummary(entity, content);
@@ -260,7 +261,7 @@ export class RecordsMapBuilder {
 
   private writeCache(
     cachePath: string,
-    entries: Record<string, { summary: string }>,
+    entries: Record<string, { summary: string }>
   ) {
     fs.writeFileSync(cachePath, JSON.stringify({ entries }, null, 2), "utf-8");
   }
@@ -274,7 +275,7 @@ export class RecordsMapBuilder {
 
     // Filter to data entities only
     const dataEntities = Array.from(catalog.values()).filter(
-      (e) => e.metadata.type === "data",
+      (e) => e.metadata.type === "data"
     );
 
     // Maps output directory (top-level)
@@ -297,7 +298,7 @@ export class RecordsMapBuilder {
       if (!changedBySource.has(entity.ref.source)) {
         changedBySource.set(
           entity.ref.source,
-          this.getChangedPathsForSource(entity.ref.source),
+          this.getChangedPathsForSource(entity.ref.source)
         );
       }
       const changed = changedBySource.get(entity.ref.source)!;
@@ -312,7 +313,7 @@ export class RecordsMapBuilder {
     mapLines.push("# Records Map");
     mapLines.push("");
     mapLines.push(
-      "Index cards for all data records, sorted by doc_type, date (desc), filename.",
+      "Index cards for all data records, sorted by doc_type, date (desc), filename."
     );
     mapLines.push("");
 
@@ -330,7 +331,7 @@ export class RecordsMapBuilder {
       const refStr = this.getRefString(
         entity.ref,
         entity.metadata.type,
-        entity.metadata.id,
+        entity.metadata.id
       );
       const dateStr = entity.metadata.date ? ` ${entity.metadata.date}` : "";
       const docTypeStr = entity.metadata.doc_type
@@ -343,7 +344,7 @@ export class RecordsMapBuilder {
           : summary;
 
       mapLines.push(
-        `- [${refStr}]${dateStr}${docTypeStr} — ${formattedSummary}`,
+        `- [${refStr}]${dateStr}${docTypeStr} — ${formattedSummary}`
       );
       mapLines.push("");
     }
@@ -405,10 +406,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const result = builder.build();
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error(formatCliError(error));
     process.exit(1);
   }
 }

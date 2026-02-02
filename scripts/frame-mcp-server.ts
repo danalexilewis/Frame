@@ -19,6 +19,7 @@ import { FrameLoader, Entity, FileRef } from "./frame-load.js";
 import { FrameResolver } from "./frame-resolve.js";
 import { RecordsMapBuilder } from "./frame-build-records-map.js";
 import { FrameBundleBuilder } from "./frame-bundle.js";
+import { formatCliError } from "./cli-output.js";
 
 class FrameMCPServer {
   private server: Server;
@@ -41,7 +42,7 @@ class FrameMCPServer {
           resources: {},
           tools: {},
         },
-      },
+      }
     );
 
     this.setupHandlers();
@@ -95,7 +96,7 @@ class FrameMCPServer {
           throw new Error(
             `Malformed URI: "${request.params.uri}". ${
               error instanceof Error ? error.message : "Invalid URI format"
-            }`,
+            }`
           );
         }
 
@@ -157,7 +158,7 @@ class FrameMCPServer {
             ],
           };
         }
-      },
+      }
     );
 
     // List tools
@@ -293,7 +294,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const projectRoot = process.argv[2] || process.cwd();
   const server = new FrameMCPServer(projectRoot);
   server.run().catch((error) => {
-    console.error("Server error:", error);
+    console.error(formatCliError(error, "Server error"));
     process.exit(1);
   });
 }

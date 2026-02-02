@@ -13,6 +13,7 @@ import { FrameCurator } from "./frame-curate.js";
 import { RecordsMapBuilder } from "./frame-build-records-map.js";
 import { FrameResolver } from "./frame-resolve.js";
 import { FileRef } from "./frame-load.js";
+import { formatCliError, formatCliMessage } from "./cli-output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,7 +78,7 @@ export class FrameBundleBuilder {
 
     // Build maps with selected markers
     const selectedRecordIds = new Set(
-      curation.records.map((r) => r.metadata.id),
+      curation.records.map((r) => r.metadata.id)
     );
     const mapResult = mapBuilder.build(selectedRecordIds);
 
@@ -109,7 +110,7 @@ export class FrameBundleBuilder {
     // Read records_tree_preview
     const resolver = new FrameResolver(this.projectRoot);
     const recordsTreeRef = mapResult.maps.find((ref) =>
-      ref.path.endsWith("records_tree.txt"),
+      ref.path.endsWith("records_tree.txt")
     );
     const recordsTreePreview = recordsTreeRef
       ? resolver.read(recordsTreeRef)
@@ -181,7 +182,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   if (!request) {
-    console.error("Error: --request is required");
+    console.error(formatCliMessage("Error", "--request is required"));
     process.exit(1);
   }
 
@@ -199,10 +200,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const bundle = builder.build();
     console.log(JSON.stringify(bundle, null, 2));
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error(formatCliError(error));
     process.exit(1);
   }
 }
