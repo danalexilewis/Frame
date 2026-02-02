@@ -5,10 +5,14 @@ import * as path from "node:path";
 
 import { FrameLoader } from "../scripts/frame-load.js";
 import { FrameResolver } from "../scripts/frame-resolve.js";
-import { RecordsMapBuilder } from "../scripts/frame-build-records-map.js";
+import {
+  RecordsMapBuilder,
+  cleanMapsFolder,
+} from "../scripts/frame-build-records-map.js";
 import { FrameBundleBuilder } from "../scripts/frame-bundle.js";
 import {
   ingestSourceDir,
+  ingestSingle,
   IngestConverter,
 } from "../scripts/frame-ingest-to-markdown.js";
 import {
@@ -16,6 +20,7 @@ import {
   formatCliMessage,
   normalizeError,
 } from "../scripts/cli-output.js";
+import matter from "gray-matter";
 
 process.env.FRAME_MODE = "test";
 const projectRoot = process.cwd();
@@ -159,4 +164,96 @@ test("cli error formatting wraps messages in code blocks", () => {
 
   const normalized = normalizeError(err);
   assert.ok(normalized.includes("boom"));
+});
+
+test("date inference prefers filename over content", async () => {
+  const importPath = path.join(testImportDir, "2026-03-04_filename_date.txt");
+  const outputPath = path.join(
+    testSourceRoot,
+    "data",
+    "2026-03-04_filename_date.md"
+  );
+
+  fs.writeFileSync(
+    importPath,
+    "# Meeting notes\n\nThis was held on 2026-01-01.",
+    "utf-8"
+  );
+
+  try {
+    await ingestSingle(importPath, {
+      type: "data",
+      docType: undefined,
+      maxTags: 3,
+      idPrefix: "date",
+      overwrite: false,
+      noFrontmatter: false,
+      ignoreImport: true,
+      trackingFile: "ingest_pending.md",
+      outputDir: path.join(testSourceRoot, "data"),
+      extensions: [".docx", ".txt", ".html", ".htm"],
+    });
+
+    const parsed = matter(fs.readFileSync(outputPath, "utf-8"));
+    assert.equal(parsed.data.date, "2026-03-04");
+  } finally {
+    if (fs.existsSync(importPath)) {
+      fs.rmSync(importPath);
+    }
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath);
+    }
+  }
+});
+
+test("date inference extracts from title or body", async () => {
+  const importPath = path.join(testImportDir, "meeting_notes.txt");
+  const outputPath = path.join(testSourceRoot, "data", "meeting_notes.md");
+
+  fs.writeFileSync(
+    importPath,
+    "# Meeting February 2, 2026\n\nAgenda and notes follow.",
+    "utf-8"
+  );
+
+  try {
+    await ingestSingle(importPath, {
+      type: "data",
+      docType: undefined,
+      maxTags: 3,
+      idPrefix: "date",
+      overwrite: false,
+      noFrontmatter: false,
+      ignoreImport: true,
+      trackingFile: "ingest_pending.md",
+      outputDir: path.join(testSourceRoot, "data"),
+      extensions: [".docx", ".txt", ".html", ".htm"],
+    });
+
+    const parsed = matter(fs.readFileSync(outputPath, "utf-8"));
+    assert.equal(parsed.data.date, "2026-02-02");
+  } finally {
+    if (fs.existsSync(importPath)) {
+      fs.rmSync(importPath);
+    }
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath);
+    }
+  }
+});
+
+test("cleanMapsFolder clears maps directory contents", () => {
+  const mapsDir = path.join(projectRoot, "maps");
+  if (!fs.existsSync(mapsDir)) {
+    fs.mkdirSync(mapsDir, { recursive: true });
+  }
+  const tempFile = path.join(mapsDir, "temp.txt");
+  const tempDir = path.join(mapsDir, "temp");
+  fs.writeFileSync(tempFile, "temp", "utf-8");
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  cleanMapsFolder(projectRoot);
+
+  const remaining = fs.readdirSync(mapsDir);
+  assert.equal(remaining.length, 0);
 });

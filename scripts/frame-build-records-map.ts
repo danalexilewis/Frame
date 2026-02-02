@@ -373,6 +373,19 @@ export class RecordsMapBuilder {
   }
 }
 
+export function cleanMapsFolder(projectRoot: string = process.cwd()): void {
+  const resolvedRoot = path.resolve(projectRoot);
+  const mapsDir = path.join(resolvedRoot, "maps");
+  if (!fs.existsSync(mapsDir)) {
+    return;
+  }
+  const entries = fs.readdirSync(mapsDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const targetPath = path.join(mapsDir, entry.name);
+    fs.rmSync(targetPath, { recursive: true, force: true });
+  }
+}
+
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
