@@ -94,11 +94,17 @@ Convert `.docx` files into Markdown for ingestion:
 tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
 ```
 
-Batch import a folder:
+Batch import a folder (recommended layout uses `import/` → `data/`):
 
 ```
 tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
 ```
+
+Behavior:
+- Writes Markdown into the `data/` folder.
+- Adds YAML frontmatter by default (type/id/doc_type/date/tags).
+- Skips files that already have a matching `.md` output.
+- Writes a pending list file (`ingest_pending.md`) into the import folder.
 
 Options:
 - `--output` (explicit output file)
