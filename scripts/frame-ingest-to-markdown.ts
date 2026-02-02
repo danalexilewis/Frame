@@ -2,7 +2,7 @@
 /**
  * Ingest files into Markdown and add YAML frontmatter.
  *
- * Supported input types: .docx, .txt, .html, .htm
+ * Supported input types: .docx, .txt, .html, .htm, .pdf, .jpg, .jpeg, .png, .gif, .webp, .tiff, .bmp, .heic
  *
  * Usage:
  *   tsx scripts/frame-ingest-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
@@ -15,7 +15,11 @@ import * as path from "path";
 import mammoth from "mammoth";
 import TurndownService from "turndown";
 import matter from "gray-matter";
-import { formatCliError, formatCliMessage } from "./cli-output.js";
+import {
+  formatCliError,
+  formatCliMessage,
+  normalizeError,
+} from "./cli-output.js";
 
 export interface Options {
   input?: string;
@@ -34,7 +38,33 @@ export interface Options {
   extensions: string[];
 }
 
-const DEFAULT_EXTENSIONS = [".docx", ".txt", ".html", ".htm"];
+const DEFAULT_EXTENSIONS = [
+  ".docx",
+  ".txt",
+  ".html",
+  ".htm",
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".tiff",
+  ".bmp",
+  ".heic",
+];
+
+const BINARY_EXTENSIONS = new Set([
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".tiff",
+  ".bmp",
+  ".heic",
+]);
 
 function parseArgs(args: string[]): Options {
   const options: Options = {
@@ -551,12 +581,21 @@ function walkInputFiles(
   return results;
 }
 
+function isBinaryAsset(ext: string): boolean {
+  return BINARY_EXTENSIONS.has(ext.toLowerCase());
+}
+
 function resolveOutputPath(inputPath: string, options: Options): string {
   if (options.output) {
     return path.resolve(options.output);
   }
   const outDir = path.resolve(options.outputDir || path.dirname(inputPath));
   const baseName = path.basename(inputPath, path.extname(inputPath));
+  const ext = path.extname(inputPath).toLowerCase();
+
+  if (isBinaryAsset(ext)) {
+    return path.join(outDir, baseName, "index.md");
+  }
   return path.join(outDir, `${baseName}.md`);
 }
 
@@ -567,6 +606,7 @@ export async function convertInput(
 ): Promise<string> {
   const outputPath = resolveOutputPath(inputPath, options);
   const ext = path.extname(inputPath).toLowerCase();
+  const isBinary = isBinaryAsset(ext);
 
   if (ext === ".docx" && !isZipFile(inputPath)) {
     console.error(
@@ -581,6 +621,42 @@ export async function convertInput(
   const outputDir = path.dirname(outputPath);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  if (isBinary) {
+    const assetFolder = outputDir;
+    const originalFilename = path.basename(inputPath);
+    const assetPath = path.join(assetFolder, originalFilename);
+
+    fs.copyFileSync(inputPath, assetPath);
+
+    const baseName = path.basename(inputPath, ext);
+    const title = options.title || baseName.replace(/_/g, " ");
+    const markdownContent = `# ${title}\n\nAsset: [${originalFilename}](${originalFilename})\n`;
+
+    let outputContent = markdownContent.trim() + "\n";
+
+    if (!options.noFrontmatter) {
+      const existing =
+        fs.existsSync(outputPath) && fs.readFileSync(outputPath, "utf-8").trim()
+          ? (matter(fs.readFileSync(outputPath, "utf-8")).data as Record<
+              string,
+              any
+            >)
+          : {};
+      const updated = buildFrontmatter(
+        outputPath,
+        markdownContent,
+        existing,
+        options
+      );
+      outputContent = matter.stringify(markdownContent, updated);
+    }
+
+    fs.writeFileSync(outputPath, outputContent, "utf-8");
+    console.log(`Wrote: ${outputPath}`);
+    console.log(`Copied asset: ${assetPath}`);
+    return outputPath;
   }
 
   const result = await converter(inputPath, options);

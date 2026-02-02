@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import AdmZip from "adm-zip";
 
 import { FrameLoader } from "../scripts/frame-load.js";
 import { FrameResolver } from "../scripts/frame-resolve.js";
@@ -26,6 +27,54 @@ process.env.FRAME_MODE = "test";
 const projectRoot = process.cwd();
 const testSourceRoot = path.join(projectRoot, "sources", "test-source");
 const testImportDir = path.join(testSourceRoot, "import");
+
+function createMinimalDocx(
+  outputPath: string,
+  content: string = "Test content"
+): void {
+  const zip = new AdmZip();
+
+  zip.addFile(
+    "[Content_Types].xml",
+    Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`)
+  );
+
+  zip.addFile(
+    "_rels/.rels",
+    Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`)
+  );
+
+  zip.addFile(
+    "word/document.xml",
+    Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>
+<w:p>
+<w:r>
+<w:t>${content}</w:t>
+</w:r>
+</w:p>
+</w:body>
+</w:document>`)
+  );
+
+  zip.addFile(
+    "word/_rels/document.xml.rels",
+    Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`)
+  );
+
+  zip.writeZip(outputPath);
+}
 
 test("loader and resolver work across configured sources", () => {
   const loader = new FrameLoader(projectRoot);
@@ -93,12 +142,19 @@ test("bundle builder orders maps before full records", () => {
 test("docx ingestion uses test-source import fixtures", async () => {
   const dataDir = path.join(testSourceRoot, "data");
   const outputPaths = [path.join(dataDir, "b.md"), path.join(dataDir, "c.md")];
+  const docxPaths = [
+    path.join(testImportDir, "b.docx"),
+    path.join(testImportDir, "c.docx"),
+  ];
 
   for (const outputPath of outputPaths) {
     if (fs.existsSync(outputPath)) {
       fs.rmSync(outputPath);
     }
   }
+
+  createMinimalDocx(docxPaths[0], "Document B content");
+  createMinimalDocx(docxPaths[1], "Document C content");
 
   const converted: string[] = [];
   const converter: IngestConverter = async (inputPath) => {
@@ -142,6 +198,11 @@ test("docx ingestion uses test-source import fixtures", async () => {
     for (const outputPath of outputPaths) {
       if (fs.existsSync(outputPath)) {
         fs.rmSync(outputPath);
+      }
+    }
+    for (const docxPath of docxPaths) {
+      if (fs.existsSync(docxPath)) {
+        fs.rmSync(docxPath);
       }
     }
     const pendingPath = path.join(testImportDir, "ingest_pending.md");
@@ -256,4 +317,97 @@ test("cleanMapsFolder clears maps directory contents", () => {
 
   const remaining = fs.readdirSync(mapsDir);
   assert.equal(remaining.length, 0);
+});
+
+test("binary asset ingestion creates folder with index.md and copies asset as blob", async () => {
+  const importPath = path.join(testImportDir, "test_document.pdf");
+  const assetFolder = path.join(testSourceRoot, "data", "test_document");
+  const indexPath = path.join(assetFolder, "index.md");
+  const assetPath = path.join(assetFolder, "test_document.pdf");
+
+  const fakePdfContent = Buffer.from("%PDF-1.4\nfake pdf content");
+  fs.writeFileSync(importPath, fakePdfContent);
+
+  try {
+    await ingestSingle(importPath, {
+      type: "data",
+      docType: undefined,
+      maxTags: 3,
+      idPrefix: "test",
+      overwrite: false,
+      noFrontmatter: false,
+      ignoreImport: true,
+      trackingFile: "ingest_pending.md",
+      outputDir: path.join(testSourceRoot, "data"),
+      extensions: [".pdf", ".jpg", ".jpeg", ".png"],
+    });
+
+    assert.ok(fs.existsSync(assetFolder), "Asset folder should exist");
+    assert.ok(fs.existsSync(indexPath), "index.md should exist");
+    assert.ok(
+      fs.existsSync(assetPath),
+      "Binary asset should be copied as blob"
+    );
+
+    const indexContent = fs.readFileSync(indexPath, "utf-8");
+    const parsed = matter(indexContent);
+    assert.equal(parsed.data.type, "data");
+    assert.ok(parsed.data.id);
+    assert.ok(indexContent.includes("test_document.pdf"));
+
+    const copiedAsset = fs.readFileSync(assetPath);
+    assert.deepEqual(
+      copiedAsset,
+      fakePdfContent,
+      "Asset should be stored as-is (blob)"
+    );
+  } finally {
+    if (fs.existsSync(importPath)) {
+      fs.rmSync(importPath);
+    }
+    if (fs.existsSync(assetFolder)) {
+      fs.rmSync(assetFolder, { recursive: true });
+    }
+  }
+});
+
+test("binary asset date inference from filename", async () => {
+  const importPath = path.join(testImportDir, "2026-05-15_meeting_notes.pdf");
+  const assetFolder = path.join(
+    testSourceRoot,
+    "data",
+    "2026-05-15_meeting_notes"
+  );
+  const indexPath = path.join(assetFolder, "index.md");
+  const assetPath = path.join(assetFolder, "2026-05-15_meeting_notes.pdf");
+
+  const fakePdfContent = Buffer.from("%PDF-1.4\nfake pdf content");
+  fs.writeFileSync(importPath, fakePdfContent);
+
+  try {
+    await ingestSingle(importPath, {
+      type: "data",
+      docType: undefined,
+      maxTags: 3,
+      idPrefix: "test",
+      overwrite: false,
+      noFrontmatter: false,
+      ignoreImport: true,
+      trackingFile: "ingest_pending.md",
+      outputDir: path.join(testSourceRoot, "data"),
+      extensions: [".pdf"],
+    });
+
+    const indexContent = fs.readFileSync(indexPath, "utf-8");
+    const parsed = matter(indexContent);
+    assert.equal(parsed.data.date, "2026-05-15");
+    assert.ok(fs.existsSync(assetPath), "Binary asset should exist as blob");
+  } finally {
+    if (fs.existsSync(importPath)) {
+      fs.rmSync(importPath);
+    }
+    if (fs.existsSync(assetFolder)) {
+      fs.rmSync(assetFolder, { recursive: true });
+    }
+  }
 });
