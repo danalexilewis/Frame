@@ -515,6 +515,14 @@ function listSourceDirectories(projectRoot: string): string[] {
     .map((entry) => path.join(sourcesRoot, entry.name));
 }
 
+function isTestMode(): boolean {
+  return (
+    process.env.FRAME_MODE === "test" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.FRAME_TEST_MODE === "true"
+  );
+}
+
 function walkInputFiles(
   rootDir: string,
   ignoreImport: boolean,
@@ -686,9 +694,14 @@ export async function ingestAllSources(
 ): Promise<void> {
   const projectRoot = process.cwd();
   const sourceRoots = listSourceDirectories(projectRoot);
+  const testMode = isTestMode();
   const tasks: Array<Promise<{ pending: string[] }>> = [];
 
   for (const sourceRoot of sourceRoots) {
+    const sourceName = path.basename(sourceRoot);
+    if (!testMode && sourceName.startsWith("test-")) {
+      continue;
+    }
     const importDir = path.join(sourceRoot, "import");
     const dataDir = path.join(sourceRoot, "data");
 
