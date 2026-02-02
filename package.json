@@ -12,6 +12,7 @@
     "curate": "tsx scripts/frame-curate.ts",
     "bundle": "tsx scripts/frame-bundle.ts",
     "mcp": "tsx scripts/frame-mcp-server.ts",
+    "docx-to-md": "tsx scripts/frame-docx-to-markdown.ts",
     "test": "node --import tsx --test tests/integration.test.ts"
   },
   "keywords": [],
@@ -19,12 +20,15 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
-    "gray-matter": "^4.0.3"
+    "mammoth": "^1.11.0",
+    "turndown": "^7.2.2"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0"
   }

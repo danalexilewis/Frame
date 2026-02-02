@@ -68,6 +68,7 @@ Common CLI entry points:
 - `npm run curate` → select profile/skills/tools/records
 - `npm run bundle` → build `context_bundle.json`
 - `npm run mcp` → run MCP server
+- `npm run docx-to-md` → convert .docx to Markdown
 
 ### Add Metadata to Markdown Sources
 
@@ -84,3 +85,30 @@ Options:
 - `--idPrefix my_source`
 - `--overwrite` (replace existing fields)
 - `--write` (apply changes; default is dry-run)
+
+### DOCX to Markdown Ingestion
+
+Convert `.docx` files into Markdown for ingestion:
+
+```
+tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
+```
+
+Batch import a folder:
+
+```
+tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source --outputDir ./sources/my-source/data
+```
+
+Options:
+- `--output` (explicit output file)
+- `--outputDir` (target directory)
+- `--title` (prepend `# Title` to the output)
+- `--type` (default: `data`)
+- `--docType` (default: inferred)
+- `--maxTags` (default: `5`)
+- `--idPrefix` (prefix for `id`)
+- `--overwrite` (replace existing frontmatter fields)
+- `--noFrontmatter` (skip YAML frontmatter)
+- `--no-ignore-import` (include `sources/**/import` paths)
+- `--trackingFile` (default: `ingest_pending.md`)
