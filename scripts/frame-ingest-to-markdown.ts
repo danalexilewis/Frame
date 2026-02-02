@@ -495,9 +495,12 @@ function buildFrontmatter(
   outputPath: string,
   content: string,
   existing: Record<string, any>,
-  options: Options
+  options: Options,
+  originalFilename?: string
 ): Record<string, any> {
-  const filename = path.basename(outputPath, ".md");
+  const filename = originalFilename
+    ? path.basename(originalFilename, path.extname(originalFilename))
+    : path.basename(outputPath, ".md");
   const inferredDate = inferDate(filename, content);
   const inferredDocType = inferDocType(content, options.docType);
   const inferredTags = inferTags(content, options.maxTags);
@@ -648,7 +651,8 @@ export async function convertInput(
         outputPath,
         markdownContent,
         existing,
-        options
+        options,
+        inputPath
       );
       outputContent = matter.stringify(markdownContent, updated);
     }
