@@ -133,6 +133,26 @@ async function convertDocxToMarkdown(
   return { markdown, messages: result.messages };
 }
 
+function isZipFile(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const header = Buffer.alloc(4);
+    const bytesRead = fs.readSync(fd, header, 0, header.length, 0);
+    fs.closeSync(fd);
+    if (bytesRead < 4) {
+      return false;
+    }
+    return (
+      header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      (header[2] === 0x03 || header[2] === 0x05 || header[2] === 0x07) &&
+      (header[3] === 0x04 || header[3] === 0x06 || header[3] === 0x08)
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function convertHtmlToMarkdown(
   inputPath: string,
   options: Options
@@ -538,6 +558,17 @@ export async function convertInput(
   converter: IngestConverter = defaultConvert
 ): Promise<string> {
   const outputPath = resolveOutputPath(inputPath, options);
+  const ext = path.extname(inputPath).toLowerCase();
+
+  if (ext === ".docx" && !isZipFile(inputPath)) {
+    console.error(
+      formatCliMessage(
+        "Warning",
+        `Skipping invalid .docx (not a zip): ${inputPath}`
+      )
+    );
+    return outputPath;
+  }
 
   const outputDir = path.dirname(outputPath);
   if (!fs.existsSync(outputDir)) {
@@ -623,7 +654,12 @@ export async function ingestSourceDir(
     if (fs.existsSync(outputPath)) {
       continue;
     }
-    await convertInput(filePath, options, converter);
+    try {
+      await convertInput(filePath, options, converter);
+    } catch (error) {
+      const message = `Ingest failed for ${filePath}\n${normalizeError(error)}`;
+      console.error(formatCliMessage("Error", message));
+    }
   }
 
   const pending: string[] = [];
