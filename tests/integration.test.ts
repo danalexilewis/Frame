@@ -109,6 +109,7 @@ test("docx ingestion uses test-source import fixtures", async () => {
         ignoreImport: true,
         trackingFile: "ingest_pending.md",
         outputDir: dataDir,
+        extensions: [".docx", ".txt", ".html", ".htm"],
       },
       converter
     );
