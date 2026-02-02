@@ -450,10 +450,11 @@ export async function ingestSourceDir(
     throw new Error(`Source directory not found: ${resolvedSourceDir}`);
   }
 
+  const extensions = options.extensions || DEFAULT_EXTENSIONS;
   const inputFiles = walkInputFiles(
     resolvedSourceDir,
     options.ignoreImport,
-    options.extensions
+    extensions
   );
   if (inputFiles.length === 0) {
     console.log("No supported files found.");
@@ -496,8 +497,9 @@ export async function ingestSingle(
   if (!fs.existsSync(resolvedInputPath)) {
     throw new Error(`Input file not found: ${resolvedInputPath}`);
   }
+  const extensions = options.extensions || DEFAULT_EXTENSIONS;
   const ext = path.extname(resolvedInputPath).toLowerCase();
-  if (!options.extensions.includes(ext)) {
+  if (!extensions.includes(ext)) {
     throw new Error(`Unsupported input type: ${ext}`);
   }
   return convertInput(resolvedInputPath, options, converter);
