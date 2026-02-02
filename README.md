@@ -68,7 +68,7 @@ Common CLI entry points:
 - `npm run curate` → select profile/skills/tools/records
 - `npm run bundle` → build `context_bundle.json`
 - `npm run mcp` → run MCP server
-- `npm run docx-to-md` → convert .docx to Markdown
+- `npm run ingest-to-md` → ingest docs to Markdown
 
 ### Add Metadata to Markdown Sources
 
@@ -86,18 +86,20 @@ Options:
 - `--overwrite` (replace existing fields)
 - `--write` (apply changes; default is dry-run)
 
-### DOCX to Markdown Ingestion
+### Ingestion to Markdown (.docx/.txt/.html)
 
-Convert `.docx` files into Markdown for ingestion:
+Convert supported files into Markdown for ingestion:
 
 ```
-tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
+tsx scripts/frame-ingest-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
+tsx scripts/frame-ingest-to-markdown.ts --input ./file.txt --outputDir ./sources/my-source/data
+tsx scripts/frame-ingest-to-markdown.ts --input ./file.html --outputDir ./sources/my-source/data
 ```
 
 Batch import a folder (recommended layout uses `import/` → `data/`):
 
 ```
-tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
+tsx scripts/frame-ingest-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
 ```
 
 Behavior:
@@ -118,3 +120,4 @@ Options:
 - `--noFrontmatter` (skip YAML frontmatter)
 - `--no-ignore-import` (include `sources/**/import` paths)
 - `--trackingFile` (default: `ingest_pending.md`)
+- `--extensions` (comma-separated list, default: `docx,txt,html,htm`)

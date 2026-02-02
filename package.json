@@ -12,7 +12,7 @@
     "curate": "tsx scripts/frame-curate.ts",
     "bundle": "tsx scripts/frame-bundle.ts",
     "mcp": "tsx scripts/frame-mcp-server.ts",
-    "docx-to-md": "tsx scripts/frame-docx-to-markdown.ts",
+    "ingest-to-md": "tsx scripts/frame-ingest-to-markdown.ts",
     "test": "node --import tsx --test tests/integration.test.ts"
   },
   "keywords": [],

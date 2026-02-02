@@ -9,8 +9,8 @@ import { RecordsMapBuilder } from "../scripts/frame-build-records-map.js";
 import { FrameBundleBuilder } from "../scripts/frame-bundle.js";
 import {
   ingestSourceDir,
-  DocxConverter,
-} from "../scripts/frame-docx-to-markdown.js";
+  IngestConverter,
+} from "../scripts/frame-ingest-to-markdown.js";
 
 process.env.FRAME_MODE = "test";
 const projectRoot = process.cwd();
@@ -91,7 +91,7 @@ test("docx ingestion uses test-source import fixtures", async () => {
   }
 
   const converted: string[] = [];
-  const converter: DocxConverter = async (inputPath) => {
+  const converter: IngestConverter = async (inputPath) => {
     converted.push(inputPath);
     return { markdown: "# Converted\n\nBody", messages: [] };
   };
