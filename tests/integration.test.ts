@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 
 import { FrameLoader } from "../scripts/frame-load.js";
 import { FrameResolver } from "../scripts/frame-resolve.js";
@@ -82,14 +81,14 @@ test("bundle builder orders maps before full records", () => {
 });
 
 test("docx ingestion uses test-source import fixtures", async () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "frame-docx-out-"));
+  const dataDir = path.join(testSourceRoot, "data");
+  const outputPaths = [path.join(dataDir, "b.md"), path.join(dataDir, "c.md")];
 
-  // Pre-create output for a.docx to simulate already ingested
-  fs.writeFileSync(
-    path.join(dataDir, "a.md"),
-    ["---", "type: data", "id: a", "---", "", "# A"].join("\n"),
-    "utf-8"
-  );
+  for (const outputPath of outputPaths) {
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath);
+    }
+  }
 
   const converted: string[] = [];
   const converter: DocxConverter = async (inputPath) => {
@@ -97,34 +96,46 @@ test("docx ingestion uses test-source import fixtures", async () => {
     return { markdown: "# Converted\n\nBody", messages: [] };
   };
 
-  await ingestSourceDir(
-    testImportDir,
-    {
-      type: "data",
-      docType: undefined,
-      maxTags: 3,
-      idPrefix: "docx",
-      overwrite: false,
-      noFrontmatter: false,
-      ignoreImport: true,
-      trackingFile: "ingest_pending.md",
-      outputDir: dataDir,
-    },
-    converter
-  );
+  try {
+    await ingestSourceDir(
+      testImportDir,
+      {
+        type: "data",
+        docType: undefined,
+        maxTags: 3,
+        idPrefix: "docx",
+        overwrite: false,
+        noFrontmatter: false,
+        ignoreImport: true,
+        trackingFile: "ingest_pending.md",
+        outputDir: dataDir,
+      },
+      converter
+    );
 
-  assert.equal(converted.length, 2);
-  assert.deepEqual(converted.map((file) => path.basename(file)).sort(), [
-    "b.docx",
-    "c.docx",
-  ]);
-  assert.ok(fs.existsSync(path.join(dataDir, "b.md")));
-  assert.ok(fs.existsSync(path.join(dataDir, "c.md")));
+    assert.equal(converted.length, 2);
+    assert.deepEqual(converted.map((file) => path.basename(file)).sort(), [
+      "b.docx",
+      "c.docx",
+    ]);
+    assert.ok(fs.existsSync(path.join(dataDir, "b.md")));
+    assert.ok(fs.existsSync(path.join(dataDir, "c.md")));
 
-  const pendingPath = path.join(testImportDir, "ingest_pending.md");
-  const pendingContents = fs.readFileSync(pendingPath, "utf-8");
-  assert.ok(pendingContents.includes("# Ingestion Pending"));
-  assert.ok(!pendingContents.includes("a.docx"));
-  assert.ok(!pendingContents.includes("b.docx"));
-  assert.ok(!pendingContents.includes("c.docx"));
+    const pendingPath = path.join(testImportDir, "ingest_pending.md");
+    const pendingContents = fs.readFileSync(pendingPath, "utf-8");
+    assert.ok(pendingContents.includes("# Ingestion Pending"));
+    assert.ok(!pendingContents.includes("a.docx"));
+    assert.ok(!pendingContents.includes("b.docx"));
+    assert.ok(!pendingContents.includes("c.docx"));
+  } finally {
+    for (const outputPath of outputPaths) {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath);
+      }
+    }
+    const pendingPath = path.join(testImportDir, "ingest_pending.md");
+    if (fs.existsSync(pendingPath)) {
+      fs.rmSync(pendingPath);
+    }
+  }
 });
