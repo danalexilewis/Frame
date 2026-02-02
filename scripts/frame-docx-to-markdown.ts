@@ -5,7 +5,7 @@
  * Usage:
  *   tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
  *   tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --output ./sources/my-source/data/my_file.md
- *   tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source --outputDir ./sources/my-source/data
+ *   tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -13,7 +13,7 @@ import mammoth from "mammoth";
 import TurndownService from "turndown";
 import matter from "gray-matter";
 
-interface Options {
+export interface Options {
   input?: string;
   sourceDir?: string;
   outputDir?: string;
@@ -83,6 +83,39 @@ function parseArgs(args: string[]): Options {
     }
   }
   return options;
+}
+
+export interface ConversionMessage {
+  type: string;
+  message: string;
+}
+
+export interface ConversionResult {
+  markdown: string;
+  messages: ConversionMessage[];
+}
+
+export type DocxConverter = (
+  inputPath: string,
+  options: Options
+) => Promise<ConversionResult>;
+
+async function defaultConvertDocx(
+  inputPath: string,
+  options: Options
+): Promise<ConversionResult> {
+  const result = await mammoth.convertToHtml({ path: inputPath });
+  const turndown = new TurndownService({
+    headingStyle: "atx",
+    bulletListMarker: "-",
+  });
+
+  let markdown = turndown.turndown(result.value);
+  if (options.title) {
+    markdown = `# ${options.title}\n\n${markdown}`;
+  }
+
+  return { markdown, messages: result.messages };
 }
 
 const STOPWORDS = new Set([
@@ -280,9 +313,10 @@ function resolveOutputPath(inputPath: string, options: Options): string {
   return path.join(outDir, `${baseName}.md`);
 }
 
-async function convertDocx(
+export async function convertDocx(
   inputPath: string,
-  options: Options
+  options: Options,
+  converter: DocxConverter = defaultConvertDocx
 ): Promise<string> {
   const outputPath = resolveOutputPath(inputPath, options);
 
@@ -291,18 +325,8 @@ async function convertDocx(
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const result = await mammoth.convertToHtml({ path: inputPath });
-  const turndown = new TurndownService({
-    headingStyle: "atx",
-    bulletListMarker: "-",
-  });
-
-  let markdown = turndown.turndown(result.value);
-  if (options.title) {
-    markdown = `# ${options.title}\n\n${markdown}`;
-  }
-
-  let outputContent = markdown.trim() + "\n";
+  const result = await converter(inputPath, options);
+  let outputContent = result.markdown.trim() + "\n";
 
   if (!options.noFrontmatter) {
     const existing =
@@ -353,48 +377,71 @@ function writePendingList(
   fs.writeFileSync(trackingPath, lines.join("\n"), "utf-8");
 }
 
+export async function ingestSourceDir(
+  sourceDir: string,
+  options: Options,
+  converter: DocxConverter = defaultConvertDocx
+): Promise<{ pending: string[] }> {
+  const resolvedSourceDir = path.resolve(sourceDir);
+  if (!fs.existsSync(resolvedSourceDir)) {
+    throw new Error(`Source directory not found: ${resolvedSourceDir}`);
+  }
+
+  const docxFiles = walkDocxFiles(resolvedSourceDir, options.ignoreImport);
+  if (docxFiles.length === 0) {
+    console.log("No .docx files found.");
+    writePendingList(resolvedSourceDir, [], options.trackingFile);
+    return { pending: [] };
+  }
+
+  for (const filePath of docxFiles) {
+    const outputPath = resolveOutputPath(filePath, options);
+    if (fs.existsSync(outputPath)) {
+      continue;
+    }
+    await convertDocx(filePath, options, converter);
+  }
+
+  const pending: string[] = [];
+  for (const filePath of docxFiles) {
+    const outputPath = resolveOutputPath(filePath, options);
+    if (!fs.existsSync(outputPath)) {
+      pending.push(path.relative(resolvedSourceDir, filePath));
+    }
+  }
+
+  writePendingList(resolvedSourceDir, pending, options.trackingFile);
+  console.log(
+    `Pending list updated: ${path.join(
+      resolvedSourceDir,
+      options.trackingFile
+    )}`
+  );
+  return { pending };
+}
+
+export async function ingestSingle(
+  inputPath: string,
+  options: Options,
+  converter: DocxConverter = defaultConvertDocx
+): Promise<string> {
+  const resolvedInputPath = path.resolve(inputPath);
+  if (!fs.existsSync(resolvedInputPath)) {
+    throw new Error(`Input file not found: ${resolvedInputPath}`);
+  }
+  if (!resolvedInputPath.toLowerCase().endsWith(".docx")) {
+    throw new Error("Input file must be a .docx file");
+  }
+  return convertDocx(resolvedInputPath, options, converter);
+}
+
 async function run(options: Options) {
   if (!options.input && !options.sourceDir) {
     throw new Error("Either --input or --sourceDir is required");
   }
 
   if (options.sourceDir) {
-    const sourceDir = path.resolve(options.sourceDir);
-    if (!fs.existsSync(sourceDir)) {
-      throw new Error(`Source directory not found: ${sourceDir}`);
-    }
-
-    const docxFiles = walkDocxFiles(sourceDir, options.ignoreImport);
-    if (docxFiles.length === 0) {
-      console.log("No .docx files found.");
-      writePendingList(sourceDir, [], options.trackingFile);
-      return;
-    }
-
-    const pending: string[] = [];
-
-    for (const filePath of docxFiles) {
-      const outputPath = resolveOutputPath(filePath, options);
-      if (fs.existsSync(outputPath)) {
-        continue;
-      }
-      if (!filePath.toLowerCase().endsWith(".docx")) {
-        continue;
-      }
-      await convertDocx(filePath, options);
-    }
-
-    for (const filePath of docxFiles) {
-      const outputPath = resolveOutputPath(filePath, options);
-      if (!fs.existsSync(outputPath)) {
-        pending.push(path.relative(sourceDir, filePath));
-      }
-    }
-
-    writePendingList(sourceDir, pending, options.trackingFile);
-    console.log(
-      `Pending list updated: ${path.join(sourceDir, options.trackingFile)}`
-    );
+    await ingestSourceDir(options.sourceDir, options);
     return;
   }
 
@@ -402,15 +449,7 @@ async function run(options: Options) {
     throw new Error("--input is required when --sourceDir is not set");
   }
 
-  const inputPath = path.resolve(options.input);
-  if (!fs.existsSync(inputPath)) {
-    throw new Error(`Input file not found: ${inputPath}`);
-  }
-  if (!inputPath.toLowerCase().endsWith(".docx")) {
-    throw new Error("Input file must be a .docx file");
-  }
-
-  await convertDocx(inputPath, options);
+  await ingestSingle(options.input, options);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

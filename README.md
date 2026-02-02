@@ -97,7 +97,7 @@ tsx scripts/frame-docx-to-markdown.ts --input ./file.docx --outputDir ./sources/
 Batch import a folder:
 
 ```
-tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source --outputDir ./sources/my-source/data
+tsx scripts/frame-docx-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
 ```
 
 Options:

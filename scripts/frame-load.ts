@@ -59,6 +59,14 @@ export class FrameLoader {
     this.sourcesConfig = this.loadSourcesConfig();
   }
 
+  private isTestMode(): boolean {
+    return (
+      process.env.FRAME_MODE === "test" ||
+      process.env.NODE_ENV === "test" ||
+      process.env.FRAME_TEST_MODE === "true"
+    );
+  }
+
   private loadSourcesConfig(): SourcesConfig {
     const sourcesPath = path.join(this.projectRoot, "frame", "sources.yaml");
     if (!fs.existsSync(sourcesPath)) {
@@ -77,12 +85,12 @@ export class FrameLoader {
 
   private loadEntitiesFromSource(
     sourceName: string,
-    sourcePath: string,
+    sourcePath: string
   ): Entity[] {
     const resolvedPath = this.resolveSourcePath(sourcePath);
     if (!fs.existsSync(resolvedPath)) {
       console.warn(
-        `Source path does not exist, skipping: ${sourceName} -> ${resolvedPath}`,
+        `Source path does not exist, skipping: ${sourceName} -> ${resolvedPath}`
       );
       return [];
     }
@@ -117,7 +125,7 @@ export class FrameLoader {
             entityType === "data" ? "data" : entityType.slice(0, -1);
           if (metadata.type !== typeFromDir) {
             console.warn(
-              `Skipping ${filePath}: type mismatch (${metadata.type} vs ${typeFromDir})`,
+              `Skipping ${filePath}: type mismatch (${metadata.type} vs ${typeFromDir})`
             );
             continue;
           }
@@ -151,7 +159,7 @@ export class FrameLoader {
     this.catalog.clear();
 
     for (const source of this.sourcesConfig.sources) {
-      if (source.ignore) {
+      if (source.ignore && !this.isTestMode()) {
         continue;
       }
       const entities = this.loadEntitiesFromSource(source.name, source.path);
@@ -162,7 +170,7 @@ export class FrameLoader {
           throw new Error(
             `Duplicate ID "${entity.metadata.id}" found:\n` +
               `  ${existing.ref.source}:${existing.ref.path}\n` +
-              `  ${entity.ref.source}:${entity.ref.path}`,
+              `  ${entity.ref.source}:${entity.ref.path}`
           );
         }
         this.catalog.set(entity.metadata.id, entity);
@@ -190,7 +198,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`Loaded ${catalog.size} entities from sources:`);
   for (const [id, entity] of catalog.entries()) {
     console.log(
-      `  ${id} (${entity.metadata.type}) from ${entity.ref.source}:${entity.ref.path}`,
+      `  ${id} (${entity.metadata.type}) from ${entity.ref.source}:${entity.ref.path}`
     );
   }
 }
