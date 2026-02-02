@@ -8,16 +8,15 @@
  *   tsx scripts/frame-ingest-to-markdown.ts --input ./file.docx --outputDir ./sources/my-source/data
  *   tsx scripts/frame-ingest-to-markdown.ts --input ./file.txt --output ./sources/my-source/data/my_file.md
  *   tsx scripts/frame-ingest-to-markdown.ts --sourceDir ./sources/my-source/import --outputDir ./sources/my-source/data
+ *   tsx scripts/frame-ingest-to-markdown.ts
  */
 import * as fs from "fs";
 import * as path from "path";
 import mammoth from "mammoth";
 import TurndownService from "turndown";
 import matter from "gray-matter";
-import {
-  formatCliError,
-  formatCliMessage,
-} from "./cli-output.js";
+import * as yaml from "js-yaml";
+import { formatCliError, formatCliMessage } from "./cli-output.js";
 
 export interface Options {
   input?: string;
@@ -37,6 +36,7 @@ export interface Options {
 }
 
 const DEFAULT_EXTENSIONS = [".docx", ".txt", ".html", ".htm"];
+const DEFAULT_SOURCES_CONFIG = path.join("frame", "sources.yaml");
 
 function parseArgs(args: string[]): Options {
   const options: Options = {
@@ -343,6 +343,34 @@ function isIgnoredPath(filePath: string, rootDir: string): boolean {
   return parts.includes("import");
 }
 
+function isTestMode(): boolean {
+  return (
+    process.env.FRAME_MODE === "test" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.FRAME_TEST_MODE === "true"
+  );
+}
+
+function loadSourcesConfig(projectRoot: string): {
+  sources: Array<{ name: string; path: string; ignore?: boolean }>;
+} {
+  const sourcesPath = path.join(projectRoot, DEFAULT_SOURCES_CONFIG);
+  if (!fs.existsSync(sourcesPath)) {
+    throw new Error(`Sources config not found: ${sourcesPath}`);
+  }
+  const content = fs.readFileSync(sourcesPath, "utf-8");
+  return yaml.load(content) as {
+    sources: Array<{ name: string; path: string; ignore?: boolean }>;
+  };
+}
+
+function resolveSourcePath(projectRoot: string, sourcePath: string): string {
+  if (path.isAbsolute(sourcePath)) {
+    return sourcePath;
+  }
+  return path.resolve(projectRoot, sourcePath);
+}
+
 function walkInputFiles(
   rootDir: string,
   ignoreImport: boolean,
@@ -492,6 +520,45 @@ export async function ingestSourceDir(
   return { pending };
 }
 
+export async function ingestAllSources(
+  options: Options,
+  converter: IngestConverter = defaultConvert
+): Promise<void> {
+  const projectRoot = process.cwd();
+  const sourcesConfig = loadSourcesConfig(projectRoot);
+  const testMode = isTestMode();
+
+  for (const source of sourcesConfig.sources) {
+    if (source.ignore && !testMode) {
+      continue;
+    }
+
+    const sourceRoot = resolveSourcePath(projectRoot, source.path);
+    const importDir = path.join(sourceRoot, "import");
+    const dataDir = path.join(sourceRoot, "data");
+
+    if (!fs.existsSync(importDir)) {
+      console.error(
+        formatCliMessage(
+          "Warning",
+          `Skipping ${source.name}: import directory not found at ${importDir}`
+        )
+      );
+      continue;
+    }
+
+    await ingestSourceDir(
+      importDir,
+      {
+        ...options,
+        sourceDir: importDir,
+        outputDir: dataDir,
+      },
+      converter
+    );
+  }
+}
+
 export async function ingestSingle(
   inputPath: string,
   options: Options,
@@ -510,17 +577,14 @@ export async function ingestSingle(
 }
 
 async function run(options: Options) {
-  if (!options.input && !options.sourceDir) {
-    throw new Error("Either --input or --sourceDir is required");
-  }
-
   if (options.sourceDir) {
     await ingestSourceDir(options.sourceDir, options);
     return;
   }
 
   if (!options.input) {
-    throw new Error("--input is required when --sourceDir is not set");
+    await ingestAllSources(options);
+    return;
   }
 
   await ingestSingle(options.input, options);
